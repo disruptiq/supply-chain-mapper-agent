@@ -1,0 +1,42 @@
+# Supply Chain Risk Mapper Configuration
+
+# Paths to ignore during scanning
+paths_to_ignore:
+  - "node_modules/"
+  - "vendor/"
+  - ".git/"
+  - "__pycache__/"
+  - "*.log"
+  - "dist/"
+  - "build/"
+  - ".venv/"
+  - "venv/"
+
+# File types to include/exclude
+file_types:
+  include: []
+  exclude: 
+    - "*.tmp"
+    - "*.bak"
+    - ".DS_Store"
+
+# Severity thresholds
+severity_thresholds:
+  low: true
+  medium: true
+  high: true
+  critical: true
+
+# Optional settings
+offline_mode: false
+include_binaries: false
+
+# Risk heuristics toggles
+risk_heuristics:
+  install_scripts: true
+  obfuscated_code: true
+  git_dependencies: true
+  unpinned_versions: true
+  binary_modules: true
+  container_risks: true
+  third_party_ci_actions: true

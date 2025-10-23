@@ -1,0 +1,17 @@
+[project]
+name = "supply-chain-mapper"
+version = "0.1.0"
+description = "A static analysis tool to map supply chain dependencies and risks."
+authors = [{ name = "Gemini CLI", email = "gemini@google.com" }]
+dependencies = [
+    "pathspec",
+    "toml",
+    "ruamel.yaml",
+]
+
+[project.scripts]
+mapper = "src.cli:main"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"

@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net6.0": {
+      "Microsoft.AspNetCore.Mvc.NewtonsoftJson": {
+        "type": "Direct",
+        "requested": "[6.0.0, )",
+        "resolved": "6.0.0",
+        "contentHash": "sha512-ghjiIpA/3lNfx86HSzGcN4nN8+Xp9QzZBjRi5WDHv8pP6zqkZm0hb8q4Xr129dR1HsC0K9+X0/Rx36RnVedfwXA=="
+      },
+      "Microsoft.EntityFrameworkCore.SqlServer": {
+        "type": "Direct",
+        "requested": "[6.0.1, )",
+        "resolved": "6.0.1",
+        "contentHash": "sha512-23rMR+MOeLYP5yNI0tYVrsbD04RYx5wB8D6BA6YKfGcJkx1LySOsW+Q8aVZqZb4/0p0mDZqY8b19Yv07BfQZK8Q=="
+      },
+      "Microsoft.EntityFrameworkCore.Tools": {
+        "type": "Direct",
+        "requested": "[6.0.1, )",
+        "resolved": "6.0.1",
+        "contentHash": "sha512-BdNfn6IzyD8z3rhTmivPpMqrl1Z+1SW00USqlEQ8E8x+xv1hmz274YZDcMjQWG9C5sT+P6V8/J5Qc66+LbJ4g=="
+      }
+    }
+  }
+}

@@ -1,0 +1,5 @@
+temp/
+*.log
+node_modules/
+output.json
+__pycache__
