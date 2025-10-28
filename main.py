@@ -16,6 +16,7 @@ from src.parsers.java_parser import JavaParser
 from src.parsers.ruby_parser import RubyParser
 from src.parsers.php_parser import PhpParser
 from src.parsers.dotnet_parser import DotNetParser
+from src.parsers.yaml_parser import YamlParser
 from src.risk_heuristics import RiskHeuristics
 from src.output import OutputFormatter
 from src.config import ConfigManager
@@ -119,6 +120,7 @@ Examples:
         ruby_parser = RubyParser()
         php_parser = PhpParser()
         dotnet_parser = DotNetParser()
+        yaml_parser = YamlParser()
 
         all_dependencies = []
         processed_count = 0
@@ -177,8 +179,12 @@ Examples:
                     parsed_deps = dotnet_parser.parse(full_path)
                     all_dependencies.extend(parsed_deps)
                     logger.debug(f"Parsed {len(parsed_deps)} dotnet dependencies from {manifest_path}")
+                elif manifest_path.endswith('.yml') or manifest_path.endswith('.yaml'):
+                    parsed_deps = yaml_parser.parse(full_path)
+                    all_dependencies.extend(parsed_deps)
+                    logger.debug(f"Parsed {len(parsed_deps)} yaml dependencies from {manifest_path}")
                 else:
-                    logger.warning(f"No parser available for: {manifest_path}")
+                    logger.info(f"No parser available for: {manifest_path}")
 
             except Exception as e:
                 logger.error(f"Failed to parse {manifest_path}: {e}")
