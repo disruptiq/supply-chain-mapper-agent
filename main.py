@@ -17,6 +17,7 @@ from src.parsers.ruby_parser import RubyParser
 from src.parsers.php_parser import PhpParser
 from src.parsers.dotnet_parser import DotNetParser
 from src.parsers.yaml_parser import YamlParser
+from src.parsers.lockfile_parser import LockfileParser
 from src.risk_heuristics import RiskHeuristics
 from src.output import OutputFormatter
 from src.config import ConfigManager
@@ -121,6 +122,7 @@ Examples:
         php_parser = PhpParser()
         dotnet_parser = DotNetParser()
         yaml_parser = YamlParser()
+        lockfile_parser = LockfileParser()
 
         all_dependencies = []
         processed_count = 0
@@ -179,6 +181,10 @@ Examples:
                     parsed_deps = dotnet_parser.parse(full_path)
                     all_dependencies.extend(parsed_deps)
                     logger.debug(f"Parsed {len(parsed_deps)} dotnet dependencies from {manifest_path}")
+                elif os.path.basename(manifest_path) in ["package-lock.json", "yarn.lock", "pnpm-lock.yaml"]:
+                    parsed_deps = lockfile_parser.parse(full_path)
+                    all_dependencies.extend(parsed_deps)
+                    logger.debug(f"Parsed {len(parsed_deps)} lockfile dependencies from {manifest_path}")
                 elif manifest_path.endswith('.yml') or manifest_path.endswith('.yaml'):
                     parsed_deps = yaml_parser.parse(full_path)
                     all_dependencies.extend(parsed_deps)
