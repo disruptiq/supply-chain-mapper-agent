@@ -32,7 +32,8 @@ class NpmParser:
                     "metadata": {
                         "dev_dependency": dev_dependency,
                         "line_number": None, # Difficult to get accurately from JSON load
-                        "script_section": False
+                        "script_section": False,
+                        "license": content.get("license")
                     }
                 }
                 dependencies.append(dep_record)

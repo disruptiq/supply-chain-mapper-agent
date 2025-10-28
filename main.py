@@ -18,11 +18,15 @@ from src.parsers.php_parser import PhpParser
 from src.parsers.dotnet_parser import DotNetParser
 from src.parsers.yaml_parser import YamlParser
 from src.parsers.lockfile_parser import LockfileParser
+from src.parsers.swift_parser import SwiftParser
+from src.parsers.r_parser import RParser
 from src.risk_heuristics import RiskHeuristics
 from src.output import OutputFormatter
 from src.config import ConfigManager
 from src.logger import get_logger
 from src.progress import ProgressIndicator
+from src.sbom_generator import SBOMGenerator
+from src.vulnerability_checker import VulnerabilityChecker
 
 def get_git_commit_hash(repo_path):
     """Get the current git commit hash"""
@@ -62,6 +66,8 @@ Examples:
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
     parser.add_argument("--log", type=str, help="Log file path")
     parser.add_argument("--quiet", "-q", action="store_true", help="Suppress progress output")
+    parser.add_argument("--check-vulns", action="store_true", help="Check dependencies for known vulnerabilities")
+    parser.add_argument("--no-sbom", action="store_true", help="Skip SBOM generation")
 
     args = parser.parse_args()
 
@@ -123,6 +129,8 @@ Examples:
         dotnet_parser = DotNetParser()
         yaml_parser = YamlParser()
         lockfile_parser = LockfileParser()
+        swift_parser = SwiftParser()
+        r_parser = RParser()
 
         all_dependencies = []
         processed_count = 0
@@ -185,6 +193,14 @@ Examples:
                     parsed_deps = lockfile_parser.parse(full_path)
                     all_dependencies.extend(parsed_deps)
                     logger.debug(f"Parsed {len(parsed_deps)} lockfile dependencies from {manifest_path}")
+                elif os.path.basename(manifest_path) == "Package.swift":
+                    parsed_deps = swift_parser.parse(full_path)
+                    all_dependencies.extend(parsed_deps)
+                    logger.debug(f"Parsed {len(parsed_deps)} swift dependencies from {manifest_path}")
+                elif os.path.basename(manifest_path) == "DESCRIPTION":
+                    parsed_deps = r_parser.parse(full_path)
+                    all_dependencies.extend(parsed_deps)
+                    logger.debug(f"Parsed {len(parsed_deps)} r dependencies from {manifest_path}")
                 elif manifest_path.endswith('.yml') or manifest_path.endswith('.yaml'):
                     parsed_deps = yaml_parser.parse(full_path)
                     all_dependencies.extend(parsed_deps)
@@ -210,6 +226,25 @@ Examples:
         risk_signals = risk_analyzer.analyze(all_dependencies, str(scan_path))
 
         logger.info(f"Identified {len(risk_signals)} risk signals")
+
+        # Check vulnerabilities if requested
+        if args.check_vulns:
+            if not args.quiet:
+                progress.update(processed_count, "Checking vulnerabilities...")
+            vuln_checker = VulnerabilityChecker()
+            vulnerabilities = vuln_checker.check_vulnerabilities(all_dependencies)
+            logger.info(f"Found {len(vulnerabilities)} vulnerabilities")
+            # Add vulnerabilities to risk signals or report separately
+
+        # Generate SBOM by default (unless disabled)
+        if not args.no_sbom:
+            if not args.quiet:
+                progress.update(processed_count, "Generating SBOM...")
+            sbom_generator = SBOMGenerator()
+            sbom = sbom_generator.generate_cyclonedx(all_dependencies, str(scan_path), commit_hash)
+            sbom_filename = "sbom.json"
+            sbom_generator.save_sbom(sbom, sbom_filename)
+            logger.success(f"SBOM saved to: {sbom_filename}")
 
         # Generate final report
         output_formatter = OutputFormatter(enable_colors=not args.no_color)
