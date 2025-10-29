@@ -36,6 +36,11 @@ The mapper performs comprehensive **cross-language dependency and metadata mappi
 - **SBOM Generation:** Automatic CycloneDX format SBOM generation (default behavior)
 - **License Detection:** Automatic license identification for dependencies
 
+### Performance Features
+- **Multi-threaded Parsing:** Parallel manifest processing using CPU core count by default
+- **Efficient Repository Traversal:** Uses `git ls-files` for fast file discovery
+- **Caching Mechanisms:** In-memory caching for vulnerability checks
+
 ### Risk Detection Heuristics
 - Install/Postinstall scripts with suspicious commands (`curl`, `wget`, `bash`, `python -c`, `node -e`)
 - Obfuscated or encoded code (long base64 strings, `eval` usage)
@@ -298,6 +303,7 @@ python main.py repo-to-scan --config config.yaml --output scan_report.json
 | `--check-vulns` | - | Check dependencies for vulnerabilities via OSV | False |
 | `--check-cves` | - | Check dependencies for CVEs via NVD API | False |
 | `--no-sbom` | - | Skip SBOM generation | False |
+| `--threads` | `-t` | Number of threads for parallel processing | CPU count |
 | `--help` | - | Show help message | - |
 
 ### Output Formats
@@ -505,7 +511,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - **Multi-Manifest Support:** Handles various lockfiles and manifest formats
 - **Development vs Production:** Distinguishes between dev and production dependencies
 - **Line Number Tracking:** Maintains line numbers for precise issue location
-- **Performance Optimization:** Uses `git ls-files` for efficient repository traversal
+- **Performance Optimization:** Uses `git ls-files` for efficient repository traversal and multi-threaded parsing
 
 ---
 

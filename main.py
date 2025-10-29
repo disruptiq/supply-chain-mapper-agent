@@ -5,6 +5,8 @@ import json
 import os
 import subprocess
 import sys
+import concurrent.futures
+import multiprocessing
 from pathlib import Path
 from src.walker import RepoWalker
 from src.parsers.npm_parser import NpmParser
@@ -71,8 +73,13 @@ Examples:
     parser.add_argument("--check-vulns", action="store_true", help="Check dependencies for known vulnerabilities")
     parser.add_argument("--check-cves", action="store_true", help="Check dependencies for CVEs using NVD")
     parser.add_argument("--no-sbom", action="store_true", help="Skip SBOM generation")
+    parser.add_argument("--threads", "-t", type=int, help="Number of threads for parallel processing (default: CPU count)")
 
     args = parser.parse_args()
+
+    # Set default threads to CPU count if not specified
+    if args.threads is None:
+        args.threads = multiprocessing.cpu_count()
 
     # Initialize logger
     log_level = "DEBUG" if args.verbose else "INFO"
@@ -136,92 +143,98 @@ Examples:
         r_parser = RParser()
         makefile_parser = MakefileParser()
 
-        all_dependencies = []
-        processed_count = 0
-
-        for manifest_path in found_manifests:
+        def parse_manifest(manifest_path):
+            """Parse a single manifest file and return dependencies"""
             full_path = os.path.join(str(scan_path), manifest_path)
-
-            if not args.quiet:
-                progress.update()
+            deps = []
 
             try:
                 # Route to appropriate parser based on file type
-                if os.path.basename(manifest_path) == "package.json":
-                    parsed_deps = npm_parser.parse(full_path)
-                    all_dependencies.extend(parsed_deps)
-                    logger.debug(f"Parsed {len(parsed_deps)} npm dependencies from {manifest_path}")
-                elif os.path.basename(manifest_path) == "package-ts.json":
+                basename = os.path.basename(manifest_path)
+
+                if basename == "package.json":
+                    deps = npm_parser.parse(full_path)
+                    logger.debug(f"Parsed {len(deps)} npm dependencies from {manifest_path}")
+                elif basename == "package-ts.json":
                     # Use the npm parser for TypeScript package files as they have the same format
-                    parsed_deps = npm_parser.parse(full_path)
-                    all_dependencies.extend(parsed_deps)
-                    logger.debug(f"Parsed {len(parsed_deps)} npm dependencies from {manifest_path}")
-                elif os.path.basename(manifest_path) == "tsconfig.json":
+                    deps = npm_parser.parse(full_path)
+                    logger.debug(f"Parsed {len(deps)} npm dependencies from {manifest_path}")
+                elif basename == "tsconfig.json":
                     # tsconfig.json doesn't contain dependencies, so we skip it
                     logger.debug(f"Skipping tsconfig.json: {manifest_path}")
-                    processed_count += 1
-                    continue
-                elif os.path.basename(manifest_path) in ["requirements.txt", "pyproject.toml", "setup.py"]:
-                    parsed_deps = python_parser.parse(full_path)
-                    all_dependencies.extend(parsed_deps)
-                    logger.debug(f"Parsed {len(parsed_deps)} python dependencies from {manifest_path}")
-                elif os.path.basename(manifest_path) in ["go.mod", "go.sum"]:
-                    parsed_deps = go_parser.parse(full_path)
-                    all_dependencies.extend(parsed_deps)
-                    logger.debug(f"Parsed {len(parsed_deps)} go dependencies from {manifest_path}")
-                elif "dockerfile" in os.path.basename(manifest_path).lower():
-                    parsed_deps = dockerfile_parser.parse(full_path)
-                    all_dependencies.extend(parsed_deps)
-                    logger.debug(f"Parsed {len(parsed_deps)} docker dependencies from {manifest_path}")
-                elif os.path.basename(manifest_path) == "Cargo.toml":
-                    parsed_deps = rust_parser.parse(full_path)
-                    all_dependencies.extend(parsed_deps)
-                    logger.debug(f"Parsed {len(parsed_deps)} rust dependencies from {manifest_path}")
-                elif os.path.basename(manifest_path) == "pom.xml":
-                    parsed_deps = java_parser.parse(full_path)
-                    all_dependencies.extend(parsed_deps)
-                    logger.debug(f"Parsed {len(parsed_deps)} java dependencies from {manifest_path}")
-                elif os.path.basename(manifest_path) in ["Gemfile", "Gemfile.lock"]:
-                    parsed_deps = ruby_parser.parse(full_path)
-                    all_dependencies.extend(parsed_deps)
-                    logger.debug(f"Parsed {len(parsed_deps)} ruby dependencies from {manifest_path}")
-                elif os.path.basename(manifest_path) in ["composer.json", "composer.lock"]:
-                    parsed_deps = php_parser.parse(full_path)
-                    all_dependencies.extend(parsed_deps)
-                    logger.debug(f"Parsed {len(parsed_deps)} php dependencies from {manifest_path}")
-                elif os.path.basename(manifest_path).endswith(".csproj") or os.path.basename(manifest_path) == "packages.lock.json":
-                    parsed_deps = dotnet_parser.parse(full_path)
-                    all_dependencies.extend(parsed_deps)
-                    logger.debug(f"Parsed {len(parsed_deps)} dotnet dependencies from {manifest_path}")
-                elif os.path.basename(manifest_path) in ["package-lock.json", "yarn.lock", "pnpm-lock.yaml"]:
-                    parsed_deps = lockfile_parser.parse(full_path)
-                    all_dependencies.extend(parsed_deps)
-                    logger.debug(f"Parsed {len(parsed_deps)} lockfile dependencies from {manifest_path}")
-                elif os.path.basename(manifest_path) == "Package.swift":
-                    parsed_deps = swift_parser.parse(full_path)
-                    all_dependencies.extend(parsed_deps)
-                    logger.debug(f"Parsed {len(parsed_deps)} swift dependencies from {manifest_path}")
-                elif os.path.basename(manifest_path) == "DESCRIPTION":
-                    parsed_deps = r_parser.parse(full_path)
-                    all_dependencies.extend(parsed_deps)
-                    logger.debug(f"Parsed {len(parsed_deps)} r dependencies from {manifest_path}")
+                    return []
+                elif basename in ["requirements.txt", "pyproject.toml", "setup.py"]:
+                    deps = python_parser.parse(full_path)
+                    logger.debug(f"Parsed {len(deps)} python dependencies from {manifest_path}")
+                elif basename in ["go.mod", "go.sum"]:
+                    deps = go_parser.parse(full_path)
+                    logger.debug(f"Parsed {len(deps)} go dependencies from {manifest_path}")
+                elif "dockerfile" in basename.lower():
+                    deps = dockerfile_parser.parse(full_path)
+                    logger.debug(f"Parsed {len(deps)} docker dependencies from {manifest_path}")
+                elif basename == "Cargo.toml":
+                    deps = rust_parser.parse(full_path)
+                    logger.debug(f"Parsed {len(deps)} rust dependencies from {manifest_path}")
+                elif basename == "pom.xml":
+                    deps = java_parser.parse(full_path)
+                    logger.debug(f"Parsed {len(deps)} java dependencies from {manifest_path}")
+                elif basename in ["Gemfile", "Gemfile.lock"]:
+                    deps = ruby_parser.parse(full_path)
+                    logger.debug(f"Parsed {len(deps)} ruby dependencies from {manifest_path}")
+                elif basename in ["composer.json", "composer.lock"]:
+                    deps = php_parser.parse(full_path)
+                    logger.debug(f"Parsed {len(deps)} php dependencies from {manifest_path}")
+                elif basename.endswith(".csproj") or basename == "packages.lock.json":
+                    deps = dotnet_parser.parse(full_path)
+                    logger.debug(f"Parsed {len(deps)} dotnet dependencies from {manifest_path}")
+                elif basename in ["package-lock.json", "yarn.lock", "pnpm-lock.yaml"]:
+                    deps = lockfile_parser.parse(full_path)
+                    logger.debug(f"Parsed {len(deps)} lockfile dependencies from {manifest_path}")
+                elif basename == "Package.swift":
+                    deps = swift_parser.parse(full_path)
+                    logger.debug(f"Parsed {len(deps)} swift dependencies from {manifest_path}")
+                elif basename == "DESCRIPTION":
+                    deps = r_parser.parse(full_path)
+                    logger.debug(f"Parsed {len(deps)} r dependencies from {manifest_path}")
                 elif manifest_path.endswith('.yml') or manifest_path.endswith('.yaml'):
-                    parsed_deps = yaml_parser.parse(full_path)
-                    all_dependencies.extend(parsed_deps)
-                    logger.debug(f"Parsed {len(parsed_deps)} yaml dependencies from {manifest_path}")
-                elif os.path.basename(manifest_path) == "Makefile" or manifest_path.endswith('.mk'):
-                    parsed_deps = makefile_parser.parse(full_path)
-                    all_dependencies.extend(parsed_deps)
-                    logger.debug(f"Parsed {len(parsed_deps)} makefile dependencies from {manifest_path}")
+                    deps = yaml_parser.parse(full_path)
+                    logger.debug(f"Parsed {len(deps)} yaml dependencies from {manifest_path}")
+                elif basename == "Makefile" or manifest_path.endswith('.mk'):
+                    deps = makefile_parser.parse(full_path)
+                    logger.debug(f"Parsed {len(deps)} makefile dependencies from {manifest_path}")
                 else:
                     logger.info(f"No parser available for: {manifest_path}")
+                    return []
 
             except Exception as e:
                 logger.error(f"Failed to parse {manifest_path}: {e}")
                 if args.verbose:
                     logger.exception("Parser error details:")
+                return []
 
-            processed_count += 1
+            return deps
+
+        # Parse manifests in parallel
+        all_dependencies = []
+        max_workers = min(args.threads, len(found_manifests)) if len(found_manifests) > 0 else 1
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # Submit all parsing tasks
+            future_to_manifest = {
+                executor.submit(parse_manifest, manifest_path): manifest_path
+                for manifest_path in found_manifests
+            }
+
+            # Collect results as they complete
+            for future in concurrent.futures.as_completed(future_to_manifest):
+                manifest_path = future_to_manifest[future]
+                try:
+                    deps = future.result()
+                    all_dependencies.extend(deps)
+                    if not args.quiet:
+                        progress.update()
+                except Exception as e:
+                    logger.error(f"Exception processing {manifest_path}: {e}")
 
         if not args.quiet:
             progress.update(new_description="Analyzing risk signals...")
