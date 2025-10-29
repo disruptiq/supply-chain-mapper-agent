@@ -24,8 +24,11 @@ class YamlParser:
     def _parse_docker_compose(self, manifest_path: str) -> List[Dict[str, Any]]:
         deps = []
         try:
-            with open(manifest_path, 'r') as f:
+            with open(manifest_path, 'r', encoding='utf-8') as f:
                 content = yaml.safe_load(f)
+        except UnicodeDecodeError:
+            print(f"Warning: {manifest_path} contains invalid UTF-8 characters, skipping")
+            return deps
         except (FileNotFoundError, yaml.YAMLError) as e:
             print(f"Error reading or parsing {manifest_path}: {e}")
             return deps
@@ -69,8 +72,11 @@ class YamlParser:
     def _parse_github_workflow(self, manifest_path: str) -> List[Dict[str, Any]]:
         deps = []
         try:
-            with open(manifest_path, 'r') as f:
+            with open(manifest_path, 'r', encoding='utf-8') as f:
                 content = yaml.safe_load(f)
+        except UnicodeDecodeError:
+            print(f"Warning: {manifest_path} contains invalid UTF-8 characters, skipping")
+            return deps
         except (FileNotFoundError, yaml.YAMLError) as e:
             print(f"Error reading or parsing {manifest_path}: {e}")
             return deps
@@ -113,8 +119,11 @@ class YamlParser:
     def _parse_gitlab_ci(self, manifest_path: str) -> List[Dict[str, Any]]:
         deps = []
         try:
-            with open(manifest_path, 'r') as f:
+            with open(manifest_path, 'r', encoding='utf-8') as f:
                 content = yaml.safe_load(f)
+        except UnicodeDecodeError:
+            print(f"Warning: {manifest_path} contains invalid UTF-8 characters, skipping")
+            return deps
         except (FileNotFoundError, yaml.YAMLError) as e:
             print(f"Error reading or parsing {manifest_path}: {e}")
             return deps

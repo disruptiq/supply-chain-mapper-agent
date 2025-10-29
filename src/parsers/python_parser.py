@@ -20,7 +20,7 @@ class PythonParser:
     def _parse_requirements_txt(self, manifest_path):
         deps = []
         try:
-            with open(manifest_path, "r") as f:
+            with open(manifest_path, "r", encoding="utf-8") as f:
                 for line_num, line in enumerate(f, 1):
                     line = line.strip()
                     if not line or line.startswith("#") or line.startswith("-r") or line.startswith("-f"):
@@ -52,6 +52,9 @@ class PythonParser:
                             }
                         }
                         deps.append(dep_record)
+        except UnicodeDecodeError:
+            print(f"Warning: {manifest_path} contains invalid UTF-8 characters, skipping")
+            return deps
         except FileNotFoundError:
             print(f"Error: requirements.txt not found at {manifest_path}")
         return deps
@@ -59,10 +62,13 @@ class PythonParser:
     def _parse_pyproject_toml(self, manifest_path):
         deps = []
         try:
-            with open(manifest_path, "r") as f:
+            with open(manifest_path, "r", encoding="utf-8") as f:
                 data = toml.load(f)
-                
-            # Handle dependencies from [project] section (PEP 621)
+        except UnicodeDecodeError:
+            print(f"Warning: {manifest_path} contains invalid UTF-8 characters, skipping")
+            return deps
+
+        # Handle dependencies from [project] section (PEP 621)
             project_section = data.get("project", {})
             dependencies_list = project_section.get("dependencies", [])
             optional_dependencies = project_section.get("optional-dependencies", {})

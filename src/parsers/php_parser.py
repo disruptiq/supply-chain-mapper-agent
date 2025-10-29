@@ -17,8 +17,11 @@ class PhpParser:
     def _parse_composer_json(self, manifest_path):
         deps = []
         try:
-            with open(manifest_path, "r") as f:
+            with open(manifest_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
+        except UnicodeDecodeError:
+            print(f"Warning: {manifest_path} contains invalid UTF-8 characters, skipping")
+            return deps
             
             # Parse regular dependencies
             require_deps = data.get("require", {})

@@ -14,81 +14,63 @@ class RustParser:
     def _parse_cargo_toml(self, manifest_path):
         deps = []
         try:
-            with open(manifest_path, "r") as f:
+            with open(manifest_path, "r", encoding="utf-8") as f:
                 data = toml.load(f)
-            
-            # Extract dependencies from [dependencies] section
-            dependencies = data.get("dependencies", {})
-            dev_dependencies = data.get("dev-dependencies", {})
-            
-            for name, version_info in dependencies.items():
-                version = self._extract_version(version_info)
-                dep_record = {
-                    "ecosystem": "rust",
-                    "manifest_path": os.path.relpath(manifest_path),
-                    "dependency": {
-                        "name": name,
-                        "version": version,
-                        "source": "crates.io",
-                        "resolved": None
-                    },
-                    "metadata": {
-                        "dev_dependency": False,
-                        "line_number": None,  # TOML doesn't provide line numbers easily
-                        "script_section": False
-                    }
+        except UnicodeDecodeError:
+            print(f"Warning: {manifest_path} contains invalid UTF-8 characters, skipping")
+            return deps
+
+        # Extract dependencies from [dependencies] section
+        dependencies = data.get("dependencies", {})
+        dev_dependencies = data.get("dev-dependencies", {})
+
+        for name, version_info in dependencies.items():
+            version = self._extract_version(version_info)
+            dep_record = {
+                "ecosystem": "rust",
+                "manifest_path": os.path.relpath(manifest_path),
+                "dependency": {
+                    "name": name,
+                    "version": version,
+                    "source": "crates.io",
+                    "resolved": None
+                },
+                "metadata": {
+                    "dev_dependency": False,
+                    "line_number": None,  # TOML doesn't provide line numbers easily
+                    "script_section": False
                 }
-                deps.append(dep_record)
-            
-            # Process dev dependencies
-            for name, version_info in dev_dependencies.items():
-                version = self._extract_version(version_info)
-                dep_record = {
-                    "ecosystem": "rust",
-                    "manifest_path": os.path.relpath(manifest_path),
-                    "dependency": {
-                        "name": name,
-                        "version": version,
-                        "source": "crates.io",
-                        "resolved": None
-                    },
-                    "metadata": {
-                        "dev_dependency": True,
-                        "line_number": None,
-                        "script_section": False
-                    }
+            }
+            deps.append(dep_record)
+
+        # Handle dev-dependencies
+        for name, version_info in dev_dependencies.items():
+            version = self._extract_version(version_info)
+            dep_record = {
+                "ecosystem": "rust",
+                "manifest_path": os.path.relpath(manifest_path),
+                "dependency": {
+                    "name": name,
+                    "version": version,
+                    "source": "crates.io",
+                    "resolved": None
+                },
+                "metadata": {
+                    "dev_dependency": True,
+                    "line_number": None,
+                    "script_section": False
                 }
-                deps.append(dep_record)
-                
-        except Exception as e:
-            print(f"Error reading or parsing {manifest_path}: {e}")
-        
+            }
+            deps.append(dep_record)
+
         return deps
 
     def _extract_version(self, version_info):
-        """Extract version from various formats in Cargo.toml"""
+        """Extract version string from various TOML formats"""
         if isinstance(version_info, str):
             return version_info
         elif isinstance(version_info, dict):
-            # Handle complex dependency specifications
-            if "version" in version_info:
-                return version_info["version"]
-            elif "git" in version_info:
-                # Git dependencies
-                git_url = version_info["git"]
-                if "rev" in version_info:
-                    return f"git+{git_url}@{version_info['rev']}"
-                elif "tag" in version_info:
-                    return f"git+{git_url}@{version_info['tag']}"
-                elif "branch" in version_info:
-                    return f"git+{git_url}#{version_info['branch']}"
-                else:
-                    return f"git+{git_url}"
-            elif "path" in version_info:
-                # Local dependencies
-                return f"local:{version_info['path']}"
-            else:
-                # Fallback to string representation
-                return str(version_info)
+            # Handle version with features or other metadata
+            return version_info.get("version", "*")
         else:
             return str(version_info)

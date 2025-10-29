@@ -18,17 +18,17 @@ class GoParser:
     def _parse_go_mod(self, manifest_path):
         deps = []
         try:
-            with open(manifest_path, "r") as f:
+            with open(manifest_path, "r", encoding="utf-8") as f:
                 lines = f.readlines()
-                
+
             in_require_section = False
             in_replace_section = False
             line_num = 0
-            
+
             for i, line in enumerate(lines, 1):
                 line_num = i
                 line = line.strip()
-                
+
                 if line.startswith("require ("):
                     in_require_section = True
                     continue
@@ -45,45 +45,18 @@ class GoParser:
                 elif line.startswith("require ") and not line.startswith("require ("):
                     # Single line require statement
                     parts = line.split()
-                    if len(parts) >= 3:
-                        module_name = parts[1]
-                        version = parts[2]
-                        # Check if it's a replaced dependency
-                        replaced = " => " in line
-                        
+                    if len(parts) >= 2:
+                        module_path = parts[1]
+                        version = parts[2] if len(parts) > 2 else "latest"
+
                         dep_record = {
                             "ecosystem": "go",
                             "manifest_path": os.path.relpath(manifest_path),
                             "dependency": {
-                                "name": module_name,
+                                "name": module_path,
                                 "version": version,
-                                "source": "goproxy" if not replaced else "replaced",
+                                "source": "go",
                                 "resolved": None
-                            },
-                            "metadata": {
-                                "dev_dependency": False,  # Go doesn't distinguish dev vs prod deps
-                                "line_number": line_num,
-                                "script_section": False
-                            }
-                        }
-                        deps.append(dep_record)
-                    continue
-                elif line.startswith("replace ") and not line.startswith("replace ("):
-                    # Single line replace statement
-                    parts = line.split()
-                    if len(parts) >= 5:
-                        original_module = parts[1]
-                        new_module = parts[3]
-                        new_version = parts[4]
-                        
-                        dep_record = {
-                            "ecosystem": "go",
-                            "manifest_path": os.path.relpath(manifest_path),
-                            "dependency": {
-                                "name": original_module,
-                                "version": new_version,
-                                "source": "replaced",
-                                "resolved": f"replaced with {new_module}@{new_version}"
                             },
                             "metadata": {
                                 "dev_dependency": False,
@@ -92,62 +65,35 @@ class GoParser:
                             }
                         }
                         deps.append(dep_record)
-                    continue
-                    
-                elif in_require_section or in_replace_section:
-                    # Multi-line require or replace statement
-                    line = line.strip()
-                    if line and not line.startswith("//"):  # Skip comments
-                        parts = line.split()
-                        if len(parts) >= 2:
-                            if in_replace_section and " => " in line:
-                                # Parse replace statement: module => replacement version
-                                parts = line.split(" => ")
-                                if len(parts) == 2:
-                                    original_module = parts[0].strip()
-                                    replacement_parts = parts[1].strip().split()
-                                    if len(replacement_parts) >= 2:
-                                        new_module = replacement_parts[0]
-                                        new_version = replacement_parts[1]
-                                        
-                                        dep_record = {
-                                            "ecosystem": "go",
-                                            "manifest_path": os.path.relpath(manifest_path),
-                                            "dependency": {
-                                                "name": original_module,
-                                                "version": new_version,
-                                                "source": "replaced",
-                                                "resolved": f"replaced with {new_module}@{new_version}"
-                                            },
-                                            "metadata": {
-                                                "dev_dependency": False,
-                                                "line_number": line_num,
-                                                "script_section": False
-                                            }
-                                        }
-                                        deps.append(dep_record)
-                            else:
-                                # Regular module requirement
-                                module_name = parts[0]
-                                version = parts[1]
-                                
-                                dep_record = {
-                                    "ecosystem": "go",
-                                    "manifest_path": os.path.relpath(manifest_path),
-                                    "dependency": {
-                                        "name": module_name,
-                                        "version": version,
-                                        "source": "goproxy",
-                                        "resolved": None
-                                    },
-                                    "metadata": {
-                                        "dev_dependency": False,
-                                        "line_number": line_num,
-                                        "script_section": False
-                                    }
-                                }
-                                deps.append(dep_record)
 
+                elif in_require_section and not in_replace_section:
+                    # Inside require block, parse module lines
+                    if line and not line.startswith("#") and not line.startswith("//"):
+                        parts = line.split()
+                        if len(parts) >= 1:
+                            module_path = parts[0]
+                            version = parts[1] if len(parts) > 1 else "latest"
+
+                            dep_record = {
+                                "ecosystem": "go",
+                                "manifest_path": os.path.relpath(manifest_path),
+                                "dependency": {
+                                    "name": module_path,
+                                    "version": version,
+                                    "source": "go",
+                                    "resolved": None
+                                },
+                                "metadata": {
+                                    "dev_dependency": False,
+                                    "line_number": line_num,
+                                    "script_section": False
+                                }
+                            }
+                            deps.append(dep_record)
+
+        except UnicodeDecodeError:
+            print(f"Warning: {manifest_path} contains invalid UTF-8 characters, skipping")
+            return deps
         except FileNotFoundError:
             print(f"Error: go.mod not found at {manifest_path}")
         return deps

@@ -18,8 +18,11 @@ class RubyParser:
     def _parse_gemfile(self, manifest_path):
         deps = []
         try:
-            with open(manifest_path, "r") as f:
+            with open(manifest_path, "r", encoding="utf-8") as f:
                 lines = f.readlines()
+        except UnicodeDecodeError:
+            print(f"Warning: {manifest_path} contains invalid UTF-8 characters, skipping")
+            return deps
             
             in_group = False
             group_type = "default"  # Default dependency

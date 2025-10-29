@@ -33,34 +33,40 @@ class LicenseDetector:
         return None
 
     def _detect_npm_license(self, manifest_path: str, dependency_name: str) -> Optional[str]:
-        with open(manifest_path, "r") as f:
-            data = json.load(f)
-        return data.get("license")
+        try:
+            with open(manifest_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            return data.get("license")
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return None
 
     def _detect_cargo_license(self, manifest_path: str, dependency_name: str) -> Optional[str]:
         # For Cargo.toml, license is usually in the package section
         # For dependencies, we'd need to check Cargo.lock or query crates.io
         # Simplified: assume it's in the manifest
         try:
-            with open(manifest_path, "r") as f:
+            with open(manifest_path, "r", encoding="utf-8") as f:
                 content = f.read()
             # Look for license in [package] section
             import re
             license_match = re.search(r'license\s*=\s*"([^"]+)"', content)
             if license_match:
                 return license_match.group(1)
-        except:
+        except UnicodeDecodeError:
             pass
         return None
 
     def _detect_r_license(self, manifest_path: str, dependency_name: str) -> Optional[str]:
-        with open(manifest_path, "r") as f:
-            content = f.read()
+        try:
+            with open(manifest_path, "r", encoding="utf-8") as f:
+                content = f.read()
         # Look for License field
         for line in content.split('\n'):
             if line.startswith('License:'):
                 return line.split(':', 1)[1].strip()
-        return None
+            return None
+        except UnicodeDecodeError:
+            return None
 
     def check_license_compliance(self, license: str, project_license: str = "MIT") -> Dict[str, Any]:
         """Check if dependency license is compatible with project license"""

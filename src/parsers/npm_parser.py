@@ -8,8 +8,11 @@ class NpmParser:
     def parse(self, manifest_path):
         dependencies = []
         try:
-            with open(manifest_path, "r") as f:
+            with open(manifest_path, "r", encoding="utf-8") as f:
                 content = json.load(f)
+        except UnicodeDecodeError:
+            print(f"Warning: {manifest_path} contains invalid UTF-8 characters, skipping")
+            return dependencies
         except (FileNotFoundError, json.JSONDecodeError) as e:
             print(f"Error reading or parsing {manifest_path}: {e}")
             return dependencies

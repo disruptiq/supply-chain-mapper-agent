@@ -18,8 +18,11 @@ class RParser:
     def _parse_description(self, manifest_path: str) -> List[Dict[str, Any]]:
         deps = []
         try:
-            with open(manifest_path, "r") as f:
+            with open(manifest_path, "r", encoding="utf-8") as f:
                 content = f.read()
+        except UnicodeDecodeError:
+            print(f"Warning: {manifest_path} contains invalid UTF-8 characters, skipping")
+            return deps
         except FileNotFoundError as e:
             print(f"Error reading {manifest_path}: {e}")
             return deps
