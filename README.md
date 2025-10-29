@@ -13,9 +13,9 @@ The mapper performs comprehensive **cross-language dependency and metadata mappi
 
 ## 🚀 Features
 
-### Supported Ecosystems (15 total)
+### Supported Ecosystems (16 total)
 - **JavaScript/TypeScript:** `package.json`, `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `tsconfig.json`
-- **Python:** `requirements.txt`, `pyproject.toml`, `Pipfile`, `Pipfile.lock`
+- **Python:** `requirements.txt`, `pyproject.toml`, `setup.py`, `Pipfile`, `Pipfile.lock`
 - **Go:** `go.mod`, `go.sum`
 - **Rust:** `Cargo.toml`, `Cargo.lock`
 - **Java:** `pom.xml`, `build.gradle`, `gradle.lockfile`
@@ -24,6 +24,7 @@ The mapper performs comprehensive **cross-language dependency and metadata mappi
 - **.NET/C#:** `*.csproj`, `packages.lock.json`
 - **Swift:** `Package.swift`
 - **R:** `DESCRIPTION`
+- **C/C++:** `Makefile`, `*.mk`
 - **Container / Infra:** `Dockerfile`, `docker-compose.yml`, `Dockerfile.*`
 - **YAML Workflows:** GitHub Actions, GitLab CI, etc.
 - **Lockfiles:** `yarn.lock`, `package-lock.json`, `pnpm-lock.yaml`
@@ -257,7 +258,8 @@ supply-chain-mapper-agent/
         ├── yaml_parser.py
         ├── lockfile_parser.py
         ├── swift_parser.py
-        └── r_parser.py
+        ├── r_parser.py
+        └── makefile_parser.py
 ```
 
 ---
@@ -472,9 +474,9 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 🚀 Current Capabilities
 
-### Supported Ecosystems (15 total)
+### Supported Ecosystems (16 total)
 - **JavaScript/TypeScript:** `package.json`, `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `tsconfig.json`
-- **Python:** `requirements.txt`, `pyproject.toml`, `Pipfile`, `Pipfile.lock`
+- **Python:** `requirements.txt`, `pyproject.toml`, `setup.py`, `Pipfile`, `Pipfile.lock`
 - **Go:** `go.mod`, `go.sum`
 - **Rust:** `Cargo.toml`, `Cargo.lock`
 - **Java:** `pom.xml`, `build.gradle`, `gradle.lockfile`
@@ -483,13 +485,14 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - **.NET/C#:** `*.csproj`, `packages.lock.json`
 - **Swift:** `Package.swift`
 - **R:** `DESCRIPTION`
+- **C/C++:** `Makefile`, `*.mk`
 - **Container / Infra:** `Dockerfile`, `docker-compose.yml`, `Dockerfile.*`
 - **YAML Workflows:** GitHub Actions, GitLab CI, etc.
 - **Lockfiles:** `yarn.lock`, `package-lock.json`, `pnpm-lock.yaml`
 - **Configuration:** `tsconfig.json`
 
 ### Core Features
-- **Cross-Language Dependency Mapping:** Identifies dependencies across 15+ programming languages and ecosystems
+- **Cross-Language Dependency Mapping:** Identifies dependencies across 16+ programming languages and ecosystems
 - **Vulnerability Database Integration:** OSV and NVD CVE checking with dynamic rate limiting
 - **SBOM Generation:** Automatic CycloneDX format Software Bill of Materials
 - **Risk Signal Detection:** Static heuristic analysis for potential security risks

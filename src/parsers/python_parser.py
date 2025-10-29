@@ -8,10 +8,13 @@ class PythonParser:
 
     def parse(self, manifest_path):
         dependencies = []
-        if os.path.basename(manifest_path) == "requirements.txt":
+        basename = os.path.basename(manifest_path)
+        if basename == "requirements.txt":
             dependencies.extend(self._parse_requirements_txt(manifest_path))
-        elif os.path.basename(manifest_path) == "pyproject.toml":
+        elif basename == "pyproject.toml":
             dependencies.extend(self._parse_pyproject_toml(manifest_path))
+        elif basename == "setup.py":
+            dependencies.extend(self._parse_setup_py(manifest_path))
         return dependencies
 
     def _parse_requirements_txt(self, manifest_path):
@@ -174,3 +177,126 @@ class PythonParser:
                 
             return {"name": name, "version": version_part}
         return None
+
+    def _parse_setup_py(self, manifest_path):
+        """Parse setup.py for dependencies"""
+        deps = []
+        try:
+            with open(manifest_path, "r", encoding="utf-8", errors="ignore") as f:
+                content = f.read()
+
+            # Find setup() call and extract dependency arguments
+            setup_match = re.search(r'setup\s*\(', content, re.DOTALL)
+            if not setup_match:
+                return deps
+
+            # Extract the setup call content
+            setup_start = setup_match.start()
+            paren_count = 0
+            end_pos = setup_start
+
+            for i, char in enumerate(content[setup_start:], setup_start):
+                if char == '(':
+                    paren_count += 1
+                elif char == ')':
+                    paren_count -= 1
+                    if paren_count == 0:
+                        end_pos = i + 1
+                        break
+
+            setup_content = content[setup_start:end_pos]
+
+            # Extract dependency lists
+            dependency_fields = ['install_requires', 'setup_requires', 'tests_require', 'extras_require']
+
+            for field in dependency_fields:
+                # Find the field assignment
+                field_pattern = rf'{field}\s*=\s*(\[.*?\]|\(.*?\)|[\'\"](.*?)[\'\"])'
+                matches = re.findall(field_pattern, setup_content, re.DOTALL)
+
+                for match in matches:
+                    dep_list_str = match[0] if isinstance(match, tuple) else match
+                    if dep_list_str.startswith('[') or dep_list_str.startswith('('):
+                        # It's a list or tuple
+                        dep_strings = self._extract_list_items(dep_list_str)
+                    else:
+                        # It's a single string
+                        dep_strings = [dep_list_str]
+
+                    is_dev = field in ['tests_require', 'extras_require']
+
+                    for dep_str in dep_strings:
+                        dep_str = dep_str.strip().strip('\'"')
+                        if dep_str and not dep_str.startswith('#'):
+                            parsed_dep = self._parse_single_dependency(dep_str)
+                            if parsed_dep:
+                                dep_record = {
+                                    "ecosystem": "python",
+                                    "manifest_path": os.path.relpath(manifest_path),
+                                    "dependency": {
+                                        "name": parsed_dep["name"],
+                                        "version": parsed_dep["version"],
+                                        "source": "pypi",
+                                        "resolved": None
+                                    },
+                                    "metadata": {
+                                        "dev_dependency": is_dev,
+                                        "line_number": self._find_line_number(content, dep_str),
+                                        "script_section": False
+                                    }
+                                }
+                                deps.append(dep_record)
+
+        except Exception as e:
+            print(f"Error parsing setup.py {manifest_path}: {e}")
+
+        return deps
+
+    def _extract_list_items(self, list_str):
+        """Extract items from a Python list/tuple string"""
+        items = []
+        current_item = ""
+        in_string = False
+        string_char = None
+        brace_count = 0
+
+        i = 0
+        while i < len(list_str):
+            char = list_str[i]
+
+            if not in_string:
+                if char in ['"', "'"]:
+                    in_string = True
+                    string_char = char
+                    current_item += char
+                elif char in ['[', '(']:
+                    brace_count += 1
+                elif char in [']', ')']:
+                    brace_count -= 1
+                    if brace_count == 0:
+                        break
+                elif char == ',' and brace_count == 1:
+                    if current_item.strip():
+                        items.append(current_item.strip())
+                    current_item = ""
+                else:
+                    current_item += char
+            else:
+                current_item += char
+                if char == string_char and (i == 0 or list_str[i-1] != '\\'):
+                    in_string = False
+
+            i += 1
+
+        if current_item.strip():
+            items.append(current_item.strip())
+
+        return items
+
+    def _find_line_number(self, content, target):
+        """Find approximate line number for a target string"""
+        lines = content.split('\n')
+        for i, line in enumerate(lines, 1):
+            if target in line:
+                return i
+        return 0

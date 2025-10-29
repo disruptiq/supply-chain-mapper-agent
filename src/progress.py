@@ -42,17 +42,14 @@ class ProgressIndicator:
             percentage = min(100, (self.current / self.total) * 100)
             bar_length = 30
             filled_length = int(bar_length * percentage / 100)
-            bar = '#' * filled_length + '-' * (bar_length - filled_length)
+            bar = '=' * filled_length + '-' * (bar_length - filled_length)
 
-            elapsed = time.time() - self.start_time
-            rate = self.current / elapsed if elapsed > 0 else 0
-
-            sys.stdout.write(f"\r{self.description}: [{bar}] {percentage:.1f}% ({self.current}/{self.total}, {rate:.1f}/s)")
+            sys.stdout.write(f"\r{self.description}: [{bar}] {percentage:.1f}% ({self.current}/{self.total})")
         else:
             # Indeterminate progress
             spinner_chars = ['|', '/', '-', '\\']
             spinner = spinner_chars[int(time.time() * 2) % len(spinner_chars)]
-            sys.stdout.write(f"\r{spinner} {self.description}... ({self.current} processed)")
+            sys.stdout.write(f"\r{spinner} {self.description}...")
 
         sys.stdout.flush()
 

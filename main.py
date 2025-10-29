@@ -20,6 +20,7 @@ from src.parsers.yaml_parser import YamlParser
 from src.parsers.lockfile_parser import LockfileParser
 from src.parsers.swift_parser import SwiftParser
 from src.parsers.r_parser import RParser
+from src.parsers.makefile_parser import MakefileParser
 from src.risk_heuristics import RiskHeuristics
 from src.output import OutputFormatter
 from src.config import ConfigManager
@@ -105,7 +106,7 @@ Examples:
             config['include_binaries'] = True
 
         # Initialize progress indicator
-        progress = ProgressIndicator(description="Scanning repository")
+        progress = ProgressIndicator(description="Processing manifests")
         if not args.quiet:
             progress.update(0, "Initializing scanner...")
 
@@ -133,6 +134,7 @@ Examples:
         lockfile_parser = LockfileParser()
         swift_parser = SwiftParser()
         r_parser = RParser()
+        makefile_parser = MakefileParser()
 
         all_dependencies = []
         processed_count = 0
@@ -141,7 +143,7 @@ Examples:
             full_path = os.path.join(str(scan_path), manifest_path)
 
             if not args.quiet:
-                progress.update(processed_count, f"Processing {manifest_path}")
+                progress.update()
 
             try:
                 # Route to appropriate parser based on file type
@@ -159,7 +161,7 @@ Examples:
                     logger.debug(f"Skipping tsconfig.json: {manifest_path}")
                     processed_count += 1
                     continue
-                elif os.path.basename(manifest_path) in ["requirements.txt", "pyproject.toml"]:
+                elif os.path.basename(manifest_path) in ["requirements.txt", "pyproject.toml", "setup.py"]:
                     parsed_deps = python_parser.parse(full_path)
                     all_dependencies.extend(parsed_deps)
                     logger.debug(f"Parsed {len(parsed_deps)} python dependencies from {manifest_path}")
@@ -207,6 +209,10 @@ Examples:
                     parsed_deps = yaml_parser.parse(full_path)
                     all_dependencies.extend(parsed_deps)
                     logger.debug(f"Parsed {len(parsed_deps)} yaml dependencies from {manifest_path}")
+                elif os.path.basename(manifest_path) == "Makefile" or manifest_path.endswith('.mk'):
+                    parsed_deps = makefile_parser.parse(full_path)
+                    all_dependencies.extend(parsed_deps)
+                    logger.debug(f"Parsed {len(parsed_deps)} makefile dependencies from {manifest_path}")
                 else:
                     logger.info(f"No parser available for: {manifest_path}")
 
@@ -218,7 +224,7 @@ Examples:
             processed_count += 1
 
         if not args.quiet:
-            progress.update(processed_count, "Analyzing risk signals...")
+            progress.update(new_description="Analyzing risk signals...")
 
         logger.info(f"Parsed {len(all_dependencies)} total dependencies")
 
@@ -233,7 +239,7 @@ Examples:
         vulnerabilities = []
         if args.check_vulns:
             if not args.quiet:
-                progress.update(processed_count, "Checking vulnerabilities...")
+                progress.update(new_description="Checking vulnerabilities...")
             vuln_checker = VulnerabilityChecker()
             vulnerabilities = vuln_checker.check_vulnerabilities(all_dependencies)
             logger.info(f"Found {len(vulnerabilities)} vulnerabilities")
@@ -242,7 +248,7 @@ Examples:
         cves = []
         if args.check_cves:
             if not args.quiet:
-                progress.update(processed_count, "Checking CVEs...")
+                progress.update(new_description="Checking CVEs...")
             cve_checker = CVEChecker()
             cves = cve_checker.check_cves(all_dependencies)
             logger.info(f"Found {len(cves)} CVEs")
@@ -250,7 +256,7 @@ Examples:
         # Generate SBOM by default (unless disabled)
         if not args.no_sbom:
             if not args.quiet:
-                progress.update(processed_count, "Generating SBOM...")
+                progress.update(new_description="Generating SBOM...")
             sbom_generator = SBOMGenerator()
             sbom = sbom_generator.generate_cyclonedx(all_dependencies, str(scan_path), commit_hash)
             sbom_filename = "sbom.json"
@@ -260,17 +266,17 @@ Examples:
         # Generate final report
         output_formatter = OutputFormatter(enable_colors=not args.no_color)
         final_report = output_formatter.generate_report(
-        repo_path=str(scan_path),
-        dependencies=all_dependencies,
-        signals=risk_signals,
-        commit_hash=commit_hash,
+            repo_path=str(scan_path),
+            dependencies=all_dependencies,
+            signals=risk_signals,
+            commit_hash=commit_hash,
             vulnerabilities=vulnerabilities,
             cves=cves
         )
 
         # Save the report
         if not args.quiet:
-            progress.update(processed_count, f"Saving {args.format.upper()} report...")
+            progress.update(new_description=f"Saving {args.format.upper()} report...")
 
         success = output_formatter.save_report(final_report, args.output)
 
