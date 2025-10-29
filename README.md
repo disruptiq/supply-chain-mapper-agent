@@ -13,7 +13,7 @@ The mapper performs comprehensive **cross-language dependency and metadata mappi
 
 ## 🚀 Features
 
-### Supported Ecosystems (11 total)
+### Supported Ecosystems (15 total)
 - **JavaScript/TypeScript:** `package.json`, `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `tsconfig.json`
 - **Python:** `requirements.txt`, `pyproject.toml`, `Pipfile`, `Pipfile.lock`
 - **Go:** `go.mod`, `go.sum`
@@ -22,9 +22,18 @@ The mapper performs comprehensive **cross-language dependency and metadata mappi
 - **Ruby:** `Gemfile`, `Gemfile.lock`
 - **PHP:** `composer.json`, `composer.lock`
 - **.NET/C#:** `*.csproj`, `packages.lock.json`
+- **Swift:** `Package.swift`
+- **R:** `DESCRIPTION`
 - **Container / Infra:** `Dockerfile`, `docker-compose.yml`, `Dockerfile.*`
-- **Package Managers:** `yarn.lock`, `pnpm-lock.yaml`, `Pipfile`, `Pipfile.lock`
+- **YAML Workflows:** GitHub Actions, GitLab CI, etc.
+- **Lockfiles:** `yarn.lock`, `package-lock.json`, `pnpm-lock.yaml`
 - **Configuration:** `tsconfig.json`
+
+### Security & Compliance Features
+- **Vulnerability Checking:** Integration with OSV database for known vulnerabilities
+- **CVE Database Integration:** Direct NVD API queries with dynamic rate limiting
+- **SBOM Generation:** Automatic CycloneDX format SBOM generation (default behavior)
+- **License Detection:** Automatic license identification for dependencies
 
 ### Risk Detection Heuristics
 - Install/Postinstall scripts with suspicious commands (`curl`, `wget`, `bash`, `python -c`, `node -e`)
@@ -74,8 +83,18 @@ Static heuristic analysis for supply chain risk detection without network calls,
 - Container risk assessment
 - Obfuscated code detection
 
-### 4. Output Formatting (`output.py`)
-Formats the canonical JSON output structure:
+### 4. Vulnerability Checking (`vulnerability_checker.py`, `cve_checker.py`)
+- **OSV Integration:** Queries the Open Source Vulnerability database for known vulnerabilities
+- **CVE Database:** Direct NIST NVD API queries with intelligent rate limiting and caching
+- **Dynamic Rate Limiting:** Exponential backoff with automatic recovery (1s to 10s delays)
+
+### 5. SBOM Generation (`sbom_generator.py`)
+- **CycloneDX Format:** Generates Software Bill of Materials in CycloneDX JSON format
+- **PURL Support:** Proper Package URL generation for all ecosystems
+- **Default Behavior:** SBOM generation is enabled by default (use `--no-sbom` to disable)
+
+### 6. Output Formatting (`output.py`)
+Formats the canonical JSON output structure with vulnerabilities and CVEs:
 
 ```json
 {
@@ -88,7 +107,9 @@ Formats the canonical JSON output structure:
     "total_manifests": 4,
     "ecosystems_detected": ["npm", "python", "docker"],
     "total_dependencies": 15,
-    "total_signals": 3
+    "total_signals": 3,
+    "total_vulnerabilities": 2,
+    "total_cves": 1
   },
   "dependencies": [
     {
@@ -116,6 +137,37 @@ Formats the canonical JSON output structure:
       ],
       "risk_score": 0.85
     }
+  ],
+  "vulnerabilities": [
+    {
+      "dependency": {
+        "ecosystem": "npm",
+        "dependency": {"name": "axios", "version": "^1.3.2"}
+      },
+      "vulnerability": {
+        "id": "GHSA-4w2v-q235-vp99",
+        "summary": "Axios Inefficient Regular Expression Complexity vulnerability",
+        "details": "The axios JavaScript library has a vulnerability due to inefficient regular expression complexity...",
+        "severity": "HIGH",
+        "references": ["https://github.com/axios/axios/security/advisories/GHSA-4w2v-q235-vp99"]
+      }
+    }
+  ],
+  "cves": [
+    {
+      "dependency": {
+        "ecosystem": "npm",
+        "dependency": {"name": "axios", "version": "^1.3.2"}
+      },
+      "cve": {
+        "id": "CVE-2023-45857",
+        "description": "Axios is vulnerable to regular expression denial of service (ReDoS)...",
+        "severity": "HIGH",
+        "references": [{"url": "https://nvd.nist.gov/vuln/detail/CVE-2023-45857"}],
+        "published": "2023-10-16T14:15:00.000",
+        "lastModified": "2023-10-24T19:15:00.000"
+      }
+    }
   ]
 }
 ```
@@ -134,6 +186,12 @@ Install required dependencies:
 pip install -r requirements.txt
 ```
 
+**Key Dependencies:**
+- `pathspec`: Gitignore pattern matching
+- `PyYAML`: YAML configuration and parsing
+- `colorama`: Cross-platform colored terminal output
+- `requests`: HTTP client for vulnerability/CVEs APIs
+
 ### Quick Start
 ```bash
 # Scan a directory
@@ -143,6 +201,11 @@ python main.py <directory-to-scan>
 python main.py repo-to-scan --output report.json    # JSON (default)
 python main.py repo-to-scan --output report.csv --format csv  # CSV format
 python main.py repo-to-scan --output report.xml --format xml  # XML format
+
+# Security scanning options
+python main.py repo-to-scan --check-vulns            # Check vulnerabilities via OSV
+python main.py repo-to-scan --check-cves             # Check CVEs via NVD API
+python main.py repo-to-scan --no-sbom                # Skip SBOM generation
 
 # Advanced options
 python main.py repo-to-scan --verbose --log scan.log  # Verbose logging with file
@@ -157,6 +220,8 @@ supply-chain-mapper-agent/
 ├── config.yaml                   # Configuration file
 ├── README.md                     # This documentation
 ├── requirements.txt             # Python dependencies
+├── output.json                   # Default scan output
+├── sbom.json                     # Default SBOM output
 ├── repo-to-scan/                # Directory containing files to scan
 │   ├── package.json             # JS/Node.js manifest
 │   ├── pyproject.toml           # Python project config
@@ -166,14 +231,19 @@ supply-chain-mapper-agent/
 │   ├── pom.xml                  # Java Maven project
 │   ├── Gemfile                  # Ruby dependencies
 │   ├── composer.json            # PHP dependencies
+│   ├── Package.swift             # Swift package manifest
+│   ├── DESCRIPTION               # R package description
 │   └── Dockerfile*              # Container manifests
 └── src/                         # Source code
-    ├── cli.py                   # Command-line interface
     ├── config.py                # Configuration management
+    ├── logger.py                # Logging utilities
+    ├── progress.py              # Progress indicators
     ├── output.py                # Output formatting
-    ├── signals.py               # Signal generation
     ├── risk_heuristics.py       # Risk analysis
-    ├── walker.py                # Repository walker
+    ├── walker.py                # Repository walker (git ls-files)
+    ├── vulnerability_checker.py # OSV vulnerability checking
+    ├── cve_checker.py           # NVD CVE checking with rate limiting
+    ├── sbom_generator.py        # CycloneDX SBOM generation
     └── parsers/                 # Ecosystem-specific parsers
         ├── npm_parser.py
         ├── python_parser.py
@@ -182,7 +252,12 @@ supply-chain-mapper-agent/
         ├── rust_parser.py
         ├── java_parser.py
         ├── ruby_parser.py
-        └── php_parser.py
+        ├── php_parser.py
+        ├── dotnet_parser.py
+        ├── yaml_parser.py
+        ├── lockfile_parser.py
+        ├── swift_parser.py
+        └── r_parser.py
 ```
 
 ---
@@ -218,6 +293,9 @@ python main.py repo-to-scan --config config.yaml --output scan_report.json
 | `--quiet` | `-q` | Suppress progress output | False |
 | `--no-color` | - | Disable colored output | False |
 | `--include-binaries` | - | Include binary detection in scan | False |
+| `--check-vulns` | - | Check dependencies for vulnerabilities via OSV | False |
+| `--check-cves` | - | Check dependencies for CVEs via NVD API | False |
+| `--no-sbom` | - | Skip SBOM generation | False |
 | `--help` | - | Show help message | - |
 
 ### Output Formats
@@ -394,7 +472,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 🚀 Current Capabilities
 
-### Supported Ecosystems (11 total)
+### Supported Ecosystems (15 total)
 - **JavaScript/TypeScript:** `package.json`, `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `tsconfig.json`
 - **Python:** `requirements.txt`, `pyproject.toml`, `Pipfile`, `Pipfile.lock`
 - **Go:** `go.mod`, `go.sum`
@@ -403,13 +481,19 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - **Ruby:** `Gemfile`, `Gemfile.lock`
 - **PHP:** `composer.json`, `composer.lock`
 - **.NET/C#:** `*.csproj`, `packages.lock.json`
+- **Swift:** `Package.swift`
+- **R:** `DESCRIPTION`
 - **Container / Infra:** `Dockerfile`, `docker-compose.yml`, `Dockerfile.*`
-- **Package Managers:** `yarn.lock`, `pnpm-lock.yaml`, `Pipfile`, `Pipfile.lock`
+- **YAML Workflows:** GitHub Actions, GitLab CI, etc.
+- **Lockfiles:** `yarn.lock`, `package-lock.json`, `pnpm-lock.yaml`
 - **Configuration:** `tsconfig.json`
 
 ### Core Features
-- **Cross-Language Dependency Mapping:** Identifies dependencies across 11+ programming languages and ecosystems
+- **Cross-Language Dependency Mapping:** Identifies dependencies across 15+ programming languages and ecosystems
+- **Vulnerability Database Integration:** OSV and NVD CVE checking with dynamic rate limiting
+- **SBOM Generation:** Automatic CycloneDX format Software Bill of Materials
 - **Risk Signal Detection:** Static heuristic analysis for potential security risks
+- **License Detection:** Automatic license identification for compliance
 - **Modular Architecture:** Extensible parser system for easy addition of new languages
 - **Gitignore Compliance:** Respects `.gitignore` and custom ignore patterns
 - **Configuration Support:** YAML-based configuration for custom settings
@@ -418,6 +502,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - **Multi-Manifest Support:** Handles various lockfiles and manifest formats
 - **Development vs Production:** Distinguishes between dev and production dependencies
 - **Line Number Tracking:** Maintains line numbers for precise issue location
+- **Performance Optimization:** Uses `git ls-files` for efficient repository traversal
 
 ---
 

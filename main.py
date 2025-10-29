@@ -27,6 +27,7 @@ from src.logger import get_logger
 from src.progress import ProgressIndicator
 from src.sbom_generator import SBOMGenerator
 from src.vulnerability_checker import VulnerabilityChecker
+from src.cve_checker import CVEChecker
 
 def get_git_commit_hash(repo_path):
     """Get the current git commit hash"""
@@ -67,6 +68,7 @@ Examples:
     parser.add_argument("--log", type=str, help="Log file path")
     parser.add_argument("--quiet", "-q", action="store_true", help="Suppress progress output")
     parser.add_argument("--check-vulns", action="store_true", help="Check dependencies for known vulnerabilities")
+    parser.add_argument("--check-cves", action="store_true", help="Check dependencies for CVEs using NVD")
     parser.add_argument("--no-sbom", action="store_true", help="Skip SBOM generation")
 
     args = parser.parse_args()
@@ -228,13 +230,22 @@ Examples:
         logger.info(f"Identified {len(risk_signals)} risk signals")
 
         # Check vulnerabilities if requested
+        vulnerabilities = []
         if args.check_vulns:
             if not args.quiet:
                 progress.update(processed_count, "Checking vulnerabilities...")
             vuln_checker = VulnerabilityChecker()
             vulnerabilities = vuln_checker.check_vulnerabilities(all_dependencies)
             logger.info(f"Found {len(vulnerabilities)} vulnerabilities")
-            # Add vulnerabilities to risk signals or report separately
+
+        # Check CVEs if requested
+        cves = []
+        if args.check_cves:
+            if not args.quiet:
+                progress.update(processed_count, "Checking CVEs...")
+            cve_checker = CVEChecker()
+            cves = cve_checker.check_cves(all_dependencies)
+            logger.info(f"Found {len(cves)} CVEs")
 
         # Generate SBOM by default (unless disabled)
         if not args.no_sbom:
@@ -249,10 +260,12 @@ Examples:
         # Generate final report
         output_formatter = OutputFormatter(enable_colors=not args.no_color)
         final_report = output_formatter.generate_report(
-            repo_path=str(scan_path),
-            dependencies=all_dependencies,
-            signals=risk_signals,
-            commit_hash=commit_hash
+        repo_path=str(scan_path),
+        dependencies=all_dependencies,
+        signals=risk_signals,
+        commit_hash=commit_hash,
+            vulnerabilities=vulnerabilities,
+            cves=cves
         )
 
         # Save the report

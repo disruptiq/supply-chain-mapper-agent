@@ -9,7 +9,7 @@ class OutputFormatter:
     def __init__(self, enable_colors: bool = True):
         self.enable_colors = enable_colors
 
-    def generate_report(self, repo_path, dependencies, signals, commit_hash="unknown"):
+    def generate_report(self, repo_path, dependencies, signals, commit_hash="unknown", vulnerabilities=None, cves=None):
         """
         Generate the final JSON report according to the specification
         """
@@ -25,10 +25,17 @@ class OutputFormatter:
                 "total_manifests": len(set(dep["manifest_path"] for dep in dependencies)),
                 "ecosystems_detected": ecosystems_detected,
                 "total_dependencies": len(dependencies),
-                "total_signals": len(signals)
+                "total_signals": len(signals),
+            "total_vulnerabilities": len(vulnerabilities) if vulnerabilities else 0,
+            "total_cves": len(cves) if cves else 0
             },
             "dependencies": dependencies
-        }
+            }
+
+        if vulnerabilities:
+            report["vulnerabilities"] = vulnerabilities
+        if cves:
+            report["cves"] = cves
         
         return report
 
@@ -182,7 +189,11 @@ class OutputFormatter:
         print(f"|- Total Dependencies: {colorize(str(report['scan_summary']['total_dependencies']), '1;32')}")
         print(f"|- Total Manifests: {colorize(str(report['scan_summary']['total_manifests']), '32')}")
         print(f"|- Ecosystems Detected: {colorize(', '.join(report['scan_summary']['ecosystems_detected']), '35')}")
-        print(f"\\- Total Risk Signals: {colorize(str(report['scan_summary']['total_signals']), '1;31')}")
+        print(f"|- Total Risk Signals: {colorize(str(report['scan_summary']['total_signals']), '1;31')}")
+        if 'total_vulnerabilities' in report['scan_summary'] and report['scan_summary']['total_vulnerabilities'] > 0:
+            print(f"|- Total Vulnerabilities: {colorize(str(report['scan_summary']['total_vulnerabilities']), '1;31')}")
+        if 'total_cves' in report['scan_summary'] and report['scan_summary']['total_cves'] > 0:
+            print(f"\\- Total CVEs: {colorize(str(report['scan_summary']['total_cves']), '1;31')}")
 
         # Breakdown by ecosystem with colors
         print(f"\n{colorize('Dependencies by Ecosystem:', '1;36')}")
